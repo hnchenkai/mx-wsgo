@@ -1,0 +1,46 @@
+
+syntax = "proto3";
+option go_package = "./bytecoder";
+option java_package = "cn.moxi.middle.bytecoder";
+
+package cn.moxi.middle.bytecoder;
+
+enum Version{
+    VERSION_0_UNSPECIFIED = 0;
+    VERSION_1 = 1;
+    VERSION_2 = 2;
+}
+
+// 通用消息格式
+message Message{
+    Version version = 1;
+    int64 request_id = 2;
+}
+
+message Messagev1 {
+    Version version = 1;
+    int64 request_id = 2;
+    string method = 3;  // 请求的类型
+    string route = 4;
+    bytes body = 5;
+    map<string,string> header = 6;
+    bool response_header = 7;   // 是否需要返回请求用的header信息
+}
+
+message Messagev2 {
+    Version version = 1;
+    int64 request_id = 2;
+    int32 cmd = 3;
+    bytes body = 4;
+    map<string,string> header = 5;
+    bool response_header = 6; // 是否需要返回请求用的header信息
+}
+
+// 表示返回信息
+message Messagev0 {
+    Version version = 1;
+    int64 request_id = 2;
+    int32 code = 3;
+    bytes message = 4;
+    map<string,string> header = 5;
+}
