@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/hnchenkai/mx-wsgo/closeSingal"
 )
@@ -26,7 +25,7 @@ type IServer interface {
 	// 启动服务
 	Run()
 	// 接入http服务
-	ServeWs(http.ResponseWriter, *http.Request)
+	ServeWs(http.ResponseWriter, *http.Request, http.Header)
 	// 断开服务
 	Unregister(int64)
 
@@ -135,14 +134,11 @@ func (h *ServerUnit) Send(clientId int64, message []byte) bool {
 	}
 }
 
-// 可以挂载到一个http服务上去,从http升级到https
-func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request) {
-	protocol := r.Header.Values("Sec-Websocket-Protocol")
-	// 这里要处理一下
-
+// 可以挂载到一个http服务上去,从http升级到https extHeader额外携带的信息
+func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request, extHeader http.Header) {
 	// 这里最好做一个权限校验，判断是否可以链接
 	conn, err := upgrader.Upgrade(w, r, http.Header{
-		"Sec-Websocket-Protocol": protocol,
+		"Sec-Websocket-Protocol": r.Header.Values("Sec-Websocket-Protocol"),
 	})
 	if err != nil {
 		log.Println(err)
@@ -150,10 +146,6 @@ func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request) {
 	}
 	opt := defaultOptions()
 	opt.byteType = 2
-
-	for i, v := range protocol {
-		protocol[i] = strings.Replace(v, "-", " ", 1)
-	}
 	client := &Connection{
 		Id:      h.nextId(),
 		hub:     h,
@@ -161,9 +153,7 @@ func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request) {
 		send:    make(chan []byte, 256),
 		options: opt,
 		host:    r.Host,
-		header: http.Header{
-			"Authorization": protocol,
-		},
+		header:  extHeader,
 	}
 
 	for key, value := range r.Header {
