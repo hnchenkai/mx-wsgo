@@ -178,17 +178,13 @@ func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request, extHeader h
 
 func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []byte, header http.Header) {
 	msg := &WSMessage{
-		ClientId: clientId,
-		Host:     host,
+		ClientId:  clientId,
+		Host:      host,
+		OrgHeader: header,
 		Send: func(message []byte) bool {
 			return h.Send(clientId, message)
 		},
 	}
-	// 链接对象存在，如果对象不存在了，可以认定是ws断开了
-	if conn, ok := h.clients[clientId]; ok {
-		msg.OrgHeader = conn.header
-	}
-
 	switch cmd {
 	case CmdMessage:
 		// 这里要么pass掉，要么回复一个错误消息
