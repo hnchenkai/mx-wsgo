@@ -69,6 +69,59 @@ func (Version) EnumDescriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{0}
 }
 
+type MsgLocalCmd int32
+
+const (
+	// 100-600 保留给http状态码使用
+	MsgLocalCmd_MSG_LOCAL_CMD_NOT_UNSPECIFIED MsgLocalCmd = 0
+	MsgLocalCmd_MSG_LOCAL_CMD_WS_ACCEPT       MsgLocalCmd = 801
+	MsgLocalCmd_MSG_LOCAL_CMD_WS_WAIT         MsgLocalCmd = 802
+	MsgLocalCmd_MSG_LOCAL_CMD_WS_CLOSE        MsgLocalCmd = 803
+)
+
+// Enum value maps for MsgLocalCmd.
+var (
+	MsgLocalCmd_name = map[int32]string{
+		0:   "MSG_LOCAL_CMD_NOT_UNSPECIFIED",
+		801: "MSG_LOCAL_CMD_WS_ACCEPT",
+		802: "MSG_LOCAL_CMD_WS_WAIT",
+		803: "MSG_LOCAL_CMD_WS_CLOSE",
+	}
+	MsgLocalCmd_value = map[string]int32{
+		"MSG_LOCAL_CMD_NOT_UNSPECIFIED": 0,
+		"MSG_LOCAL_CMD_WS_ACCEPT":       801,
+		"MSG_LOCAL_CMD_WS_WAIT":         802,
+		"MSG_LOCAL_CMD_WS_CLOSE":        803,
+	}
+)
+
+func (x MsgLocalCmd) Enum() *MsgLocalCmd {
+	p := new(MsgLocalCmd)
+	*p = x
+	return p
+}
+
+func (x MsgLocalCmd) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MsgLocalCmd) Descriptor() protoreflect.EnumDescriptor {
+	return file_message_proto_enumTypes[1].Descriptor()
+}
+
+func (MsgLocalCmd) Type() protoreflect.EnumType {
+	return &file_message_proto_enumTypes[1]
+}
+
+func (x MsgLocalCmd) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MsgLocalCmd.Descriptor instead.
+func (MsgLocalCmd) EnumDescriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{1}
+}
+
 // 通用消息格式
 type Message struct {
 	state         protoimpl.MessageState
@@ -462,10 +515,19 @@ var file_message_proto_rawDesc = []byte{
 	0x15, 0x56, 0x45, 0x52, 0x53, 0x49, 0x4f, 0x4e, 0x5f, 0x30, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45,
 	0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x56, 0x45, 0x52, 0x53,
 	0x49, 0x4f, 0x4e, 0x5f, 0x31, 0x10, 0x01, 0x12, 0x0d, 0x0a, 0x09, 0x56, 0x45, 0x52, 0x53, 0x49,
-	0x4f, 0x4e, 0x5f, 0x32, 0x10, 0x02, 0x42, 0x27, 0x0a, 0x18, 0x63, 0x6e, 0x2e, 0x6d, 0x6f, 0x78,
-	0x69, 0x2e, 0x6d, 0x69, 0x64, 0x64, 0x6c, 0x65, 0x2e, 0x62, 0x79, 0x74, 0x65, 0x63, 0x6f, 0x64,
-	0x65, 0x72, 0x5a, 0x0b, 0x2e, 0x2f, 0x62, 0x79, 0x74, 0x65, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x4f, 0x4e, 0x5f, 0x32, 0x10, 0x02, 0x2a, 0x87, 0x01, 0x0a, 0x0b, 0x4d, 0x73, 0x67, 0x4c, 0x6f,
+	0x63, 0x61, 0x6c, 0x43, 0x6d, 0x64, 0x12, 0x21, 0x0a, 0x1d, 0x4d, 0x53, 0x47, 0x5f, 0x4c, 0x4f,
+	0x43, 0x41, 0x4c, 0x5f, 0x43, 0x4d, 0x44, 0x5f, 0x4e, 0x4f, 0x54, 0x5f, 0x55, 0x4e, 0x53, 0x50,
+	0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x1c, 0x0a, 0x17, 0x4d, 0x53, 0x47,
+	0x5f, 0x4c, 0x4f, 0x43, 0x41, 0x4c, 0x5f, 0x43, 0x4d, 0x44, 0x5f, 0x57, 0x53, 0x5f, 0x41, 0x43,
+	0x43, 0x45, 0x50, 0x54, 0x10, 0xa1, 0x06, 0x12, 0x1a, 0x0a, 0x15, 0x4d, 0x53, 0x47, 0x5f, 0x4c,
+	0x4f, 0x43, 0x41, 0x4c, 0x5f, 0x43, 0x4d, 0x44, 0x5f, 0x57, 0x53, 0x5f, 0x57, 0x41, 0x49, 0x54,
+	0x10, 0xa2, 0x06, 0x12, 0x1b, 0x0a, 0x16, 0x4d, 0x53, 0x47, 0x5f, 0x4c, 0x4f, 0x43, 0x41, 0x4c,
+	0x5f, 0x43, 0x4d, 0x44, 0x5f, 0x57, 0x53, 0x5f, 0x43, 0x4c, 0x4f, 0x53, 0x45, 0x10, 0xa3, 0x06,
+	0x42, 0x27, 0x0a, 0x18, 0x63, 0x6e, 0x2e, 0x6d, 0x6f, 0x78, 0x69, 0x2e, 0x6d, 0x69, 0x64, 0x64,
+	0x6c, 0x65, 0x2e, 0x62, 0x79, 0x74, 0x65, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x5a, 0x0b, 0x2e, 0x2f,
+	0x62, 0x79, 0x74, 0x65, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -480,26 +542,27 @@ func file_message_proto_rawDescGZIP() []byte {
 	return file_message_proto_rawDescData
 }
 
-var file_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_message_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_message_proto_goTypes = []interface{}{
 	(Version)(0),      // 0: cn.moxi.middle.bytecoder.Version
-	(*Message)(nil),   // 1: cn.moxi.middle.bytecoder.Message
-	(*Messagev1)(nil), // 2: cn.moxi.middle.bytecoder.Messagev1
-	(*Messagev2)(nil), // 3: cn.moxi.middle.bytecoder.Messagev2
-	(*Messagev0)(nil), // 4: cn.moxi.middle.bytecoder.Messagev0
-	nil,               // 5: cn.moxi.middle.bytecoder.Messagev1.HeaderEntry
-	nil,               // 6: cn.moxi.middle.bytecoder.Messagev2.HeaderEntry
-	nil,               // 7: cn.moxi.middle.bytecoder.Messagev0.HeaderEntry
+	(MsgLocalCmd)(0),  // 1: cn.moxi.middle.bytecoder.MsgLocalCmd
+	(*Message)(nil),   // 2: cn.moxi.middle.bytecoder.Message
+	(*Messagev1)(nil), // 3: cn.moxi.middle.bytecoder.Messagev1
+	(*Messagev2)(nil), // 4: cn.moxi.middle.bytecoder.Messagev2
+	(*Messagev0)(nil), // 5: cn.moxi.middle.bytecoder.Messagev0
+	nil,               // 6: cn.moxi.middle.bytecoder.Messagev1.HeaderEntry
+	nil,               // 7: cn.moxi.middle.bytecoder.Messagev2.HeaderEntry
+	nil,               // 8: cn.moxi.middle.bytecoder.Messagev0.HeaderEntry
 }
 var file_message_proto_depIdxs = []int32{
 	0, // 0: cn.moxi.middle.bytecoder.Message.version:type_name -> cn.moxi.middle.bytecoder.Version
 	0, // 1: cn.moxi.middle.bytecoder.Messagev1.version:type_name -> cn.moxi.middle.bytecoder.Version
-	5, // 2: cn.moxi.middle.bytecoder.Messagev1.header:type_name -> cn.moxi.middle.bytecoder.Messagev1.HeaderEntry
+	6, // 2: cn.moxi.middle.bytecoder.Messagev1.header:type_name -> cn.moxi.middle.bytecoder.Messagev1.HeaderEntry
 	0, // 3: cn.moxi.middle.bytecoder.Messagev2.version:type_name -> cn.moxi.middle.bytecoder.Version
-	6, // 4: cn.moxi.middle.bytecoder.Messagev2.header:type_name -> cn.moxi.middle.bytecoder.Messagev2.HeaderEntry
+	7, // 4: cn.moxi.middle.bytecoder.Messagev2.header:type_name -> cn.moxi.middle.bytecoder.Messagev2.HeaderEntry
 	0, // 5: cn.moxi.middle.bytecoder.Messagev0.version:type_name -> cn.moxi.middle.bytecoder.Version
-	7, // 6: cn.moxi.middle.bytecoder.Messagev0.header:type_name -> cn.moxi.middle.bytecoder.Messagev0.HeaderEntry
+	8, // 6: cn.moxi.middle.bytecoder.Messagev0.header:type_name -> cn.moxi.middle.bytecoder.Messagev0.HeaderEntry
 	7, // [7:7] is the sub-list for method output_type
 	7, // [7:7] is the sub-list for method input_type
 	7, // [7:7] is the sub-list for extension type_name
@@ -567,7 +630,7 @@ func file_message_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_message_proto_rawDesc,
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,

@@ -4,7 +4,3 @@ plugins:
     out: ./
     opt:
       - paths=source_relative
-  - name: js
-    out: ./
-    opt:
-      - import_style=commonjs,binary

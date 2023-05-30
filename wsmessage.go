@@ -18,6 +18,8 @@ type WSMessage struct {
 	// 发送消息的方法
 	Send func(message []byte) bool
 
+	Close func()
+
 	ReqId   int64             `json:"requestId"`
 	Method  string            `json:"method"`
 	Route   string            `json:"route"`

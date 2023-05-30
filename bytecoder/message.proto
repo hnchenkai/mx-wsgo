@@ -36,6 +36,16 @@ message Messagev2 {
     bool response_header = 6; // 是否需要返回请求用的header信息
 }
 
+enum MsgLocalCmd{
+    // 100-600 保留给http状态码使用
+    MSG_LOCAL_CMD_NOT_UNSPECIFIED = 0;
+    MSG_LOCAL_CMD_WS_ACCEPT = 801;  // 链接发起成功
+    MSG_LOCAL_CMD_WS_WAIT = 802;    // 链接发起等待
+    MSG_LOCAL_CMD_WS_CLOSE = 803;   // 链接发起断开
+
+    MSG_LOCAL_CMD_WS_ACK = 810; // 客户端主动询问自己前面还有几个人
+}
+
 // 表示返回信息
 message Messagev0 {
     Version version = 1;

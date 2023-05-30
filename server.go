@@ -53,9 +53,11 @@ type ServerUnit struct {
 	fclose closeSingal.CloseSingal
 
 	dispatch Dispather
+
+	needInitPb bool
 }
 
-func NewServerUnit(dispatcher Dispather) *ServerUnit {
+func NewServerUnit(dispatcher Dispather, initPb bool) *ServerUnit {
 	return &ServerUnit{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Connection),
@@ -63,6 +65,7 @@ func NewServerUnit(dispatcher Dispather) *ServerUnit {
 		clients:    make(map[int64]*Connection),
 		genId:      0,
 		dispatch:   dispatcher,
+		needInitPb: initPb,
 	}
 }
 
@@ -86,12 +89,12 @@ func (h *ServerUnit) Run() {
 		select {
 		case client := <-h.register:
 			h.clients[client.Id] = client
-			h.Dispatch(client.host, client.Id, CmdAccept, nil, client.header)
+			go h.Dispatch(client.host, client.Id, CmdAccept, nil, client.header)
 		case clientId := <-h.unregister:
 			if client, ok := h.clients[clientId]; ok {
 				delete(h.clients, clientId)
 				close(client.send)
-				h.Dispatch(client.host, client.Id, CmdClose, nil, client.header)
+				go h.Dispatch(client.host, client.Id, CmdClose, nil, client.header)
 			}
 		case message := <-h.broadcast:
 			for clientId, client := range h.clients {
@@ -184,6 +187,9 @@ func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []by
 		Send: func(message []byte) bool {
 			return h.Send(clientId, message)
 		},
+		Close: func() {
+			h.Unregister(clientId)
+		},
 	}
 	switch cmd {
 	case CmdMessage:
@@ -194,7 +200,9 @@ func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []by
 		}
 	case CmdAccept:
 		// 先发起一个把pb协议推送出去的命令
-		msg.sendProto()
+		if h.needInitPb {
+			msg.sendProto()
+		}
 	case CmdClose:
 		// 这里把send无效化掉
 		msg.Send = func(message []byte) bool {
