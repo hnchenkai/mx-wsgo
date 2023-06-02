@@ -32,6 +32,19 @@ func MarshalV2(reqId int64, cmd int32, body []byte, metadata map[string]string) 
 	}
 }
 
+func MarshalCMD(reqId int64, cmd MsgLocalCmd, body []byte, metadata map[string]string) StreamCoder {
+	if bt, err := proto.Marshal(&MessageCMD{
+		Version:   Version_VERSION_CMD,
+		RequestId: reqId,
+		Cmd:       cmd,
+		Body:      body,
+	}); err != nil {
+		return nil
+	} else {
+		return bt
+	}
+}
+
 func MarshalV0(reqId int64, code int32, message []byte, header map[string]string) StreamCoder {
 	c, _ := proto.Marshal(&Messagev0{
 		Version:   Version_VERSION_0_UNSPECIFIED,
@@ -46,6 +59,14 @@ func MarshalV0(reqId int64, code int32, message []byte, header map[string]string
 
 func (c *StreamCoder) UnmarshalV2() (*Messagev2, error) {
 	msg := Messagev2{}
+	if err := proto.Unmarshal(*c, &msg); err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (c *StreamCoder) UnmarshalCmd() (*MessageCMD, error) {
+	msg := MessageCMD{}
 	if err := proto.Unmarshal(*c, &msg); err != nil {
 		return nil, err
 	}

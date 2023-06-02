@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/hnchenkai/mx-wsgo/bytecoder"
 	"github.com/hnchenkai/mx-wsgo/closeSingal"
 )
 
@@ -14,6 +15,7 @@ const (
 	CmdMessage Cmd = "message"
 	CmdAccept  Cmd = "accept"
 	CmdClose   Cmd = "close"
+	CmdCmd     Cmd = "cmd"
 )
 
 type Dispather func(cmd Cmd, msg *WSMessage)
@@ -109,14 +111,17 @@ func (h *ServerUnit) Run() {
 	}
 }
 
+// 这个是负责消息广播的
 func (h *ServerUnit) Broadcast(message []byte) {
 	h.broadcast <- message
 }
 
+// 这个是关闭链接的
 func (h *ServerUnit) Unregister(clientId int64) {
 	h.unregister <- clientId
 }
 
+// 这个是生成
 func (h *ServerUnit) nextId() int64 {
 	var num int64 = 1
 	if h.genId > (num << 62) {
@@ -135,6 +140,26 @@ func (h *ServerUnit) Send(clientId int64, message []byte) bool {
 	} else {
 		return false
 	}
+}
+
+// 添加head信息
+func (h *ServerUnit) AddHeader(clientId int64, key string, value string) bool {
+	client, ok := h.clients[clientId]
+	if !ok {
+		return false
+	}
+	client.header.Add(key, value)
+	return true
+}
+
+// 删除head信息
+func (h *ServerUnit) DelHeader(clientId int64, key string) bool {
+	client, ok := h.clients[clientId]
+	if !ok {
+		return false
+	}
+	client.header.Del(key)
+	return true
 }
 
 // 可以挂载到一个http服务上去,从http升级到https extHeader额外携带的信息
@@ -179,6 +204,14 @@ func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request, extHeader h
 	go client.readPump()
 }
 
+func (h *ServerUnit) doDispatch(cmd Cmd, msg *WSMessage) {
+	if h.dispatch != nil {
+		h.dispatch(cmd, msg)
+		return
+	}
+}
+
+// 分发消息
 func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []byte, header http.Header) {
 	msg := &WSMessage{
 		ClientId:  clientId,
@@ -190,19 +223,34 @@ func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []by
 		Close: func() {
 			h.Unregister(clientId)
 		},
+		AddHeader: func(key string, value string) bool {
+			return h.AddHeader(clientId, key, value)
+		},
+		DelHeader: func(key string) bool {
+			return h.DelHeader(clientId, key)
+		},
 	}
 	switch cmd {
 	case CmdMessage:
 		// 这里要么pass掉，要么回复一个错误消息
 		if err := msg.FromPb(message); err != nil {
-			msg.SendResponse(http.StatusBadRequest, []byte(err.Error()), nil)
+			msg.SendError(http.StatusBadRequest, err.Error(), nil)
 			return
+		}
+		if msg.Version == int(bytecoder.Version_VERSION_CMD) {
+			h.doDispatch(CmdCmd, msg)
+		} else if msg.IsAccept() {
+			h.doDispatch(cmd, msg)
+		} else {
+			// 回复一个消息，告诉客户端需要等待接入
+			msg.SendError(http.StatusBadRequest, "need accept", nil)
 		}
 	case CmdAccept:
 		// 先发起一个把pb协议推送出去的命令
 		if h.needInitPb {
 			msg.sendProto()
 		}
+		h.doDispatch(cmd, msg)
 	case CmdClose:
 		// 这里把send无效化掉
 		msg.Send = func(message []byte) bool {
@@ -210,10 +258,7 @@ func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []by
 			fmt.Println("CmdClose的时候不要发送消息了")
 			return false
 		}
+		h.doDispatch(cmd, msg)
 	}
 
-	if h.dispatch != nil {
-		h.dispatch(cmd, msg)
-		return
-	}
 }

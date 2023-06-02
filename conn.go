@@ -2,7 +2,6 @@ package mxwsgo
 
 import (
 	"bytes"
-	"log"
 	"net/http"
 	"time"
 
@@ -88,9 +87,9 @@ func (c *Connection) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
-			}
+			// if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			// 	log.Printf("error: %v", err)
+			// }
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))

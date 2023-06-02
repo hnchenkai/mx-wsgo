@@ -9,6 +9,7 @@ enum Version{
     VERSION_0_UNSPECIFIED = 0;
     VERSION_1 = 1;
     VERSION_2 = 2;
+    VERSION_CMD = 3;
 }
 
 // 通用消息格式
@@ -43,7 +44,15 @@ enum MsgLocalCmd{
     MSG_LOCAL_CMD_WS_WAIT = 802;    // 链接发起等待
     MSG_LOCAL_CMD_WS_CLOSE = 803;   // 链接发起断开
 
-    MSG_LOCAL_CMD_WS_ACK = 810; // 客户端主动询问自己前面还有几个人
+    MSG_LOCAL_CMD_WS_REQ = 810; // 客户端主动询问自己前面还有几个人
+    MSG_LOCAL_CMD_WS_RESP = 811;
+}
+
+message MessageCMD {
+    Version version = 1;
+    int64 request_id = 2;
+    MsgLocalCmd cmd = 3;
+    bytes body = 4;
 }
 
 // 表示返回信息
@@ -53,4 +62,9 @@ message Messagev0 {
     int32 code = 3;
     bytes message = 4;
     map<string,string> header = 5;
+}
+
+message MessageWaitInfo{
+    int64 self = 1;
+    int64 total = 2;
 }
