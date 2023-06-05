@@ -59,7 +59,10 @@ type ServerUnit struct {
 	needInitPb bool
 }
 
-func NewServerUnit(dispatcher Dispather, initPb bool) *ServerUnit {
+func NewServerUnit(dispatcher Dispather, initPb ...bool) *ServerUnit {
+	if len(initPb) == 0 {
+		initPb = []bool{false}
+	}
 	return &ServerUnit{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Connection),
@@ -67,7 +70,7 @@ func NewServerUnit(dispatcher Dispather, initPb bool) *ServerUnit {
 		clients:    make(map[int64]*Connection),
 		genId:      0,
 		dispatch:   dispatcher,
-		needInitPb: initPb,
+		needInitPb: initPb[0],
 	}
 }
 
