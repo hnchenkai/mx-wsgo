@@ -51,7 +51,7 @@ var upgrader = websocket.Upgrader{
 
 // Client is a middleman between the websocket connection and the hub.
 type Connection struct {
-	Id  int64
+	Id  string
 	hub IServer
 
 	// The websocket connection.

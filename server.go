@@ -21,7 +21,7 @@ const (
 type Dispather func(cmd Cmd, msg *WSMessage)
 type IServer interface {
 	// 发送数据
-	Send(int64, []byte) bool
+	Send(string, []byte) bool
 	// 广播
 	Broadcast([]byte)
 	// 启动服务
@@ -29,17 +29,17 @@ type IServer interface {
 	// 接入http服务
 	ServeWs(http.ResponseWriter, *http.Request, http.Header)
 	// 断开服务
-	Unregister(int64)
+	Unregister(string)
 
 	// 接收到消息后，消息分派给具体的用户处理协程
-	Dispatch(string, int64, Cmd, []byte, http.Header)
+	Dispatch(string, string, Cmd, []byte, http.Header)
 }
 
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
 type ServerUnit struct {
 	// Registered clients.
-	clients map[int64]*Connection
+	clients map[string]*Connection
 
 	// Inbound messages from the clients.
 	broadcast chan []byte
@@ -48,7 +48,7 @@ type ServerUnit struct {
 	register chan *Connection
 
 	// Unregister requests from clients.
-	unregister chan int64
+	unregister chan string
 
 	genId int64
 
@@ -66,8 +66,8 @@ func NewServerUnit(dispatcher Dispather, initPb ...bool) *ServerUnit {
 	return &ServerUnit{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Connection),
-		unregister: make(chan int64),
-		clients:    make(map[int64]*Connection),
+		unregister: make(chan string),
+		clients:    make(map[string]*Connection),
 		genId:      0,
 		dispatch:   dispatcher,
 		needInitPb: initPb[0],
@@ -120,7 +120,7 @@ func (h *ServerUnit) Broadcast(message []byte) {
 }
 
 // 这个是关闭链接的
-func (h *ServerUnit) Unregister(clientId int64) {
+func (h *ServerUnit) Unregister(clientId string) {
 	h.unregister <- clientId
 }
 
@@ -135,7 +135,7 @@ func (h *ServerUnit) nextId() int64 {
 	return h.genId
 }
 
-func (h *ServerUnit) Send(clientId int64, message []byte) bool {
+func (h *ServerUnit) Send(clientId string, message []byte) bool {
 	client, ok := h.clients[clientId]
 	if ok {
 		client.send <- message
@@ -146,7 +146,7 @@ func (h *ServerUnit) Send(clientId int64, message []byte) bool {
 }
 
 // 添加head信息
-func (h *ServerUnit) AddHeader(clientId int64, key string, value string) bool {
+func (h *ServerUnit) AddHeader(clientId string, key string, value string) bool {
 	client, ok := h.clients[clientId]
 	if !ok {
 		return false
@@ -156,7 +156,7 @@ func (h *ServerUnit) AddHeader(clientId int64, key string, value string) bool {
 }
 
 // 删除head信息
-func (h *ServerUnit) DelHeader(clientId int64, key string) bool {
+func (h *ServerUnit) DelHeader(clientId string, key string) bool {
 	client, ok := h.clients[clientId]
 	if !ok {
 		return false
@@ -175,10 +175,12 @@ func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request, extHeader h
 		log.Println(err)
 		return
 	}
+
+	prefix := r.Header.Get("Sec-Websocket-Accept")
 	opt := defaultOptions()
 	opt.byteType = 2
 	client := &Connection{
-		Id:      h.nextId(),
+		Id:      fmt.Sprintf("%s_%d", prefix, h.nextId()),
 		hub:     h,
 		conn:    conn,
 		send:    make(chan []byte, 256),
@@ -214,8 +216,33 @@ func (h *ServerUnit) doDispatch(cmd Cmd, msg *WSMessage) {
 	}
 }
 
+// 获取一个链接对象，负责主动发送消息
+func (h *ServerUnit) GetConnMessage(clientId string) *WSMessage {
+	client, ok := h.clients[clientId]
+	if !ok {
+		return nil
+	}
+	return &WSMessage{
+		ClientId:  clientId,
+		Host:      client.host,
+		OrgHeader: client.header,
+		Send: func(message []byte) bool {
+			return h.Send(clientId, message)
+		},
+		Close: func() {
+			h.Unregister(clientId)
+		},
+		AddHeader: func(key string, value string) bool {
+			return h.AddHeader(clientId, key, value)
+		},
+		DelHeader: func(key string) bool {
+			return h.DelHeader(clientId, key)
+		},
+	}
+}
+
 // 分发消息
-func (h *ServerUnit) Dispatch(host string, clientId int64, cmd Cmd, message []byte, header http.Header) {
+func (h *ServerUnit) Dispatch(host string, clientId string, cmd Cmd, message []byte, header http.Header) {
 	msg := &WSMessage{
 		ClientId:  clientId,
 		Host:      host,

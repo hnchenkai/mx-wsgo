@@ -79,7 +79,7 @@ func toAccept(msg *mxwsgo.WSMessage, second time.Duration) {
 	msg.SetAcceptMode()
 }
 
-var WaitCountMap = make(map[int64]int64)
+var WaitCountMap = make(map[string]int64)
 
 type WaitUnit struct {
 	Self  int64 `json:"self"`
@@ -91,7 +91,7 @@ func (w *WaitUnit) Byte() []byte {
 	return b
 }
 
-func toWaitInfo(clientId int64) *WaitUnit {
+func toWaitInfo(clientId string) *WaitUnit {
 	c, ok := WaitCountMap[clientId]
 	total := 10
 	if !ok {

@@ -13,7 +13,7 @@ type WSMessage struct {
 	// 请求对应的host
 	Host string
 	// 连接id
-	ClientId int64 `json:"clientId,omitempty"`
+	ClientId string `json:"clientId,omitempty"`
 	// 原始头 这里只是拷贝，不能直接修改
 	OrgHeader http.Header
 	// 发送消息的方法
