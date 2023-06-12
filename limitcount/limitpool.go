@@ -11,10 +11,15 @@ import (
 )
 
 type LimitPool struct {
-	name             string
+	// 限量池名称
+	name string
+	// 限量管理对象
 	limitCountClient redis.IHash
-	parant           *LimitCountUnit
 
+	// 管理者对象
+	parant *LimitCountUnit
+
+	// 限量函数
 	limitFunc func(limitkey string) int
 }
 
@@ -64,6 +69,13 @@ func toValueInt(count string) int {
 	return iCount
 }
 
+func (p *LimitPool) init() {
+	if p.limitCountClient == nil {
+		// 信息不存在的时候 创建一个本地的对象
+		p.limitCountClient = redis.NewLocalHash()
+	}
+}
+
 // AddCount 添加一个数量
 func (p *LimitPool) AddCount(ctx context.Context, limitkey string) error {
 	limits, err := p.limitCountClient.GetAll(ctx, limitkey)
@@ -87,7 +99,10 @@ func (p *LimitPool) AddCount(ctx context.Context, limitkey string) error {
 	}
 
 	// 这里要读取配置信息，用来确定可以使用的上线
-	limitCount := p.limitFunc(limitkey)
+	limitCount := 0
+	if p.limitFunc != nil {
+		limitCount = p.limitFunc(limitkey)
+	}
 	if limitCount > 0 && sumTotal >= limitCount {
 		return errors.New("数量满了，请等待")
 	}

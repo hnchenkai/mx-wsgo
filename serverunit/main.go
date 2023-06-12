@@ -92,7 +92,7 @@ func (h *ServerUnit) Close() {
 
 // 这个是负责实现链接管理，断开链接，广播的转发
 func (h *ServerUnit) Run() {
-	go h.limitcount.Run()
+	h.limitcount.Run()
 	defer func() {
 		for clientId, client := range h.clients {
 			close(client.send)
@@ -312,7 +312,7 @@ func (h *ServerUnit) Dispatch(host string, clientId string, cmd wsmessage.Cmd, m
 		// 	msg.SendProto()
 		// }
 		// 发起一个等待消息
-		status := h.limitcount.MakeConnStatus(context.Background(), msg.Group(), msg.ClientId)
+		status := h.limitcount.MakeConnStatus(msg.Group(), msg.ClientId)
 		switch status {
 		case wsmessage.LimitAccept:
 			msg.SetAcceptMode()
@@ -332,7 +332,7 @@ func (h *ServerUnit) Dispatch(host string, clientId string, cmd wsmessage.Cmd, m
 			fmt.Println("CmdClose的时候不要发送消息了")
 			return false
 		}
-		h.limitcount.CloseConnStatus(context.Background(), msg.Group(), msg.ClientId, msg.Status())
+		h.limitcount.CloseConnStatus(msg.Group(), msg.ClientId, msg.Status())
 		h.doDispatch(cmd, msg)
 	}
 

@@ -48,6 +48,11 @@ func (s *LimitStatic) del(ctx context.Context, outttls ...string) {
 	}
 }
 
+// 激活当前的节点
+func (s *LimitStatic) doActiveUnit() {
+	s.limitTtlClient.Set(context.Background(), s.ttlKey, s.gateKey, fmt.Sprint(time.Now().Unix()))
+}
+
 // RunTtl负责定时同步redis中的key状态，负责wait的转换到ready
 func (s *LimitStatic) Run() {
 	// redis
@@ -60,9 +65,8 @@ func (s *LimitStatic) Run() {
 		}
 		select {
 		case <-tick.C:
-			ctx := context.Background()
 			// 刷新服务的有效期
-			s.limitTtlClient.Set(ctx, s.ttlKey, s.gateKey, fmt.Sprint(time.Now().Unix()))
+			s.doActiveUnit()
 			tick.Reset(s.ttlInterval * time.Second)
 		case <-tickUp.C:
 			// 单独一个协程负责更新

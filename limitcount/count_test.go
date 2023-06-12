@@ -1,17 +1,23 @@
 package limitcount_test
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/hnchenkai/mx-wsgo/limitcount"
+	"github.com/hnchenkai/mx-wsgo/wsmessage"
 )
 
 func TestAdd(t *testing.T) {
-	// ctx := context.Background()
-	// go limitcount.Run(nil)
-	// defer limitcount.Close()
-	// if limitcount.MakeConnStatus(ctx, "axxx1", "1") != wsmessage.LimitAccept {
-	// 	t.FailNow()
-	// }
-	// if err := limitcount.CloseConnStatus(ctx, "axxx1", "1", wsmessage.LimitAccept); err != nil {
-	// 	t.FailNow()
-	// }
+	limitUnit := limitcount.NewLimitCountUnit(nil)
+	limitUnit.Init(nil)
+	limitUnit.Run()
+	defer limitUnit.Close()
+	if limitUnit.MakeConnStatus("axxx1", "1") != wsmessage.LimitAccept {
+		t.FailNow()
+	}
+	fmt.Println(limitUnit.Status("axxx1"))
+	if err := limitUnit.CloseConnStatus("axxx1", "1", wsmessage.LimitAccept); err != nil {
+		t.FailNow()
+	}
 }

@@ -20,6 +20,12 @@ type LimitOption struct {
 	WaitLimitFunc  func(limitkey string) int // 等待状态的总量
 }
 
+func (lo *LimitOption) init() {
+	if lo.TtlInterval == 0 {
+		lo.TtlInterval = 10 * time.Second
+	}
+}
+
 type IGetMessageFunc = func(clientId string) *wsmessage.WSMessage
 
 // 限流静态数据
@@ -40,6 +46,12 @@ func NewLimitCountUnit(u IGetMessageFunc) *LimitCountUnit {
 
 // 初始化方法
 func (unit *LimitCountUnit) Init(option *LimitOption) {
+	if option == nil {
+		option = &LimitOption{}
+	}
+
+	option.init()
+
 	unit.limitStatic = &LimitStatic{
 		ttlKey:         "gate",
 		ttlInterval:    option.TtlInterval,
@@ -56,12 +68,14 @@ func (unit *LimitCountUnit) Init(option *LimitOption) {
 		parant:           unit,
 		limitFunc:        option.ReadyLimitFunc,
 	}
+	unit.readyPool.init()
 	unit.waitingPool = &LimitPool{
 		name:             "waitingPool",
 		limitCountClient: redis.NewRedisHash(option.RedisConn, fmt.Sprintf("%s:wait:count", option.Namekey)),
 		parant:           unit,
 		limitFunc:        option.WaitLimitFunc,
 	}
+	unit.waitingPool.init()
 }
 
 func (unit *LimitCountUnit) Status(limitkey string) string {
@@ -76,7 +90,9 @@ func (unit *LimitCountUnit) Run() {
 	if unit.limitStatic == nil {
 		return
 	}
-	unit.limitStatic.Run()
+	// 先激活一下自己
+	unit.limitStatic.doActiveUnit()
+	go unit.limitStatic.Run()
 }
 
 func (unit *LimitCountUnit) Close() {
@@ -96,10 +112,11 @@ func (unit *LimitCountUnit) WaitUnitInfo(ctx context.Context, limitkey string, c
 }
 
 // MakeConnStatus 负责生成连接状态
-func (unit *LimitCountUnit) MakeConnStatus(ctx context.Context, limitkey string, clientId string) wsmessage.LimitStatus {
+func (unit *LimitCountUnit) MakeConnStatus(limitkey string, clientId string) wsmessage.LimitStatus {
 	if unit.limitStatic == nil {
 		return wsmessage.LimitAccept
 	}
+	ctx := context.Background()
 	// 优先查一下是否有人排队中，是否需要清理排队队列
 	waitQueue := unit.limitStatic.getWaitQueue(limitkey)
 	if waitQueue.Size() > 0 {
@@ -121,10 +138,11 @@ func (unit *LimitCountUnit) MakeConnStatus(ctx context.Context, limitkey string,
 }
 
 // CloseConnStatus 负责关闭连接状态
-func (unit *LimitCountUnit) CloseConnStatus(ctx context.Context, limitkey string, clientId string, status wsmessage.LimitStatus) error {
+func (unit *LimitCountUnit) CloseConnStatus(limitkey string, clientId string, status wsmessage.LimitStatus) error {
 	if unit.limitStatic == nil {
 		return nil
 	}
+	ctx := context.Background()
 	switch status {
 	case wsmessage.LimitAccept:
 		return unit.readyPool.DelCount(ctx, limitkey)

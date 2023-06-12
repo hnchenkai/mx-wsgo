@@ -47,8 +47,6 @@ func TestAccept(t *testing.T) {
 	unit := mxwsgo.NewServerUnit(func(cmd wsmessage.Cmd, msg *wsmessage.WSMessage) {
 		switch cmd {
 		case wsmessage.CmdAccept:
-			// 发起一个断开消息
-			msg.SetAcceptMode()
 		case wsmessage.CmdClose:
 		case wsmessage.CmdMessage:
 		}
