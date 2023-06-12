@@ -1,4 +1,4 @@
-package closeSingal
+package domain
 
 // 关闭信号，专门用于安全关闭系统
 type CloseSingal struct {
@@ -22,6 +22,10 @@ func (p *CloseSingal) Wait() bool {
 	default:
 		return false
 	}
+}
+
+func (p *CloseSingal) WaitSingal() chan bool {
+	return p.sigCloseBegin
 }
 
 // 在wait后面调用defer

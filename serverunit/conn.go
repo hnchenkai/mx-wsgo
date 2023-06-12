@@ -1,4 +1,4 @@
-package mxwsgo
+package serverunit
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/hnchenkai/mx-wsgo/wsmessage"
 )
 
 type ClientOptions struct {
@@ -95,7 +96,7 @@ func (c *Connection) readPump() {
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 
 		// 这里收到数据了，理论上要把数据抛出来
-		go c.hub.Dispatch(c.host, c.Id, CmdMessage, message, c.header)
+		go c.hub.Dispatch(c.host, c.Id, wsmessage.CmdMessage, message, c.header)
 	}
 }
 

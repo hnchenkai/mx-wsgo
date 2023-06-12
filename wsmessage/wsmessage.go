@@ -1,4 +1,4 @@
-package mxwsgo
+package wsmessage
 
 import (
 	"encoding/json"
@@ -7,6 +7,29 @@ import (
 
 	"github.com/hnchenkai/mx-wsgo/bytecoder"
 	"google.golang.org/protobuf/proto"
+)
+
+type Cmd string
+
+const (
+	CmdMessage Cmd = "message" // 收到消息
+	CmdAccept  Cmd = "accept"  // 链接被正确接受
+	CmdClose   Cmd = "close"   // 链接被关闭
+
+	CmdCmd Cmd = "cmd" // 内部特殊的命令
+
+	CmdWait   Cmd = "wait"   // 开启排队模式后被列入排队状态的
+	CmdReject Cmd = "reject" // 开启排队模式后被拒绝的
+)
+
+// 链接状态信息
+type LimitStatus string
+
+// 内部使用的链接状态信息
+const (
+	LimitAccept LimitStatus = "accept"
+	LimitWait   LimitStatus = "wait"
+	LimitReject LimitStatus = "reject"
 )
 
 type WSMessage struct {
@@ -51,7 +74,7 @@ func (app *WSMessage) FromPb(msg1 []byte) error {
 	switch coder.Version() {
 	case bytecoder.Version_VERSION_1:
 		msg, _ := coder.UnmarshalV1()
-		app.Version = 1
+		app.Version = int(bytecoder.Version_VERSION_1)
 		app.ReqId = msg.GetRequestId()
 		app.Route = msg.GetRoute()
 		app.Message = msg.GetBody()
@@ -60,7 +83,7 @@ func (app *WSMessage) FromPb(msg1 []byte) error {
 		app.ResponseHeader = msg.GetResponseHeader()
 	case bytecoder.Version_VERSION_2:
 		msg, _ := coder.UnmarshalV2()
-		app.Version = 2
+		app.Version = int(bytecoder.Version_VERSION_2)
 		app.ReqId = msg.GetRequestId()
 		app.Route = fmt.Sprintf("/%d", app.Cmd)
 		app.Message = msg.GetBody()
@@ -72,7 +95,7 @@ func (app *WSMessage) FromPb(msg1 []byte) error {
 		return fmt.Errorf("error message")
 	case bytecoder.Version_VERSION_CMD:
 		msg, _ := coder.UnmarshalCmd()
-		app.Version = 3
+		app.Version = int(bytecoder.Version_VERSION_CMD)
 		app.ReqId = msg.GetRequestId()
 		app.Cmd = msg.GetCmd()
 		app.Message = msg.GetBody()
@@ -83,6 +106,10 @@ func (app *WSMessage) FromPb(msg1 []byte) error {
 	}
 
 	return nil
+}
+
+func (app *WSMessage) Group() string {
+	return app.OrgHeader.Get("Group")
 }
 
 // 应答消息给用户
@@ -113,7 +140,7 @@ func (app *WSMessage) SendResponseCmd(code bytecoder.MsgLocalCmd, body []byte, h
 	return app.Send(coder)
 }
 
-func (app *WSMessage) sendProto() bool {
+func (app *WSMessage) SendProto() bool {
 	coder := bytecoder.ShowProtoFile()
 	if coder != nil {
 		coder.Gzip()
@@ -129,15 +156,21 @@ func (app *WSMessage) IsAccept() bool {
 	return ok == "accept"
 }
 
+func (app *WSMessage) Status() LimitStatus {
+	ok := app.OrgHeader.Get("MX-WSGO-ACCEPT")
+	if ok == "accept" {
+		return LimitAccept
+	} else if ok == "wait" {
+		return LimitWait
+	} else {
+		return LimitReject
+	}
+}
+
 func (app *WSMessage) SetAcceptMode() {
 	app.DelHeader("MX-WSGO-ACCEPT")
 	app.AddHeader("MX-WSGO-ACCEPT", "accept")
 	app.SendResponseCmd(bytecoder.MsgLocalCmd_MSG_LOCAL_CMD_WS_ACCEPT, []byte("连接成功"), nil)
-}
-
-type WaitInfo struct {
-	Self  int64 `json:"self"`
-	Total int64 `json:"total"`
 }
 
 func (app *WSMessage) SetWaitMode(self int64, total int64) {
@@ -147,12 +180,6 @@ func (app *WSMessage) SetWaitMode(self int64, total int64) {
 	}
 
 	bt, _ := proto.Marshal(&info)
-	// info := WaitInfo{
-	// 	Self:  self,
-	// 	Total: total,
-	// }
-	// bt, _ := json.Marshal(info)
-
 	app.AddHeader("MX-WSGO-ACCEPT", "wait")
 	app.SendResponseCmd(bytecoder.MsgLocalCmd_MSG_LOCAL_CMD_WS_WAIT, bt, nil)
 }
@@ -164,11 +191,10 @@ func (app *WSMessage) WaitResponse(self int64, total int64) {
 	}
 
 	bt, _ := proto.Marshal(&info)
-
-	// info := WaitInfo{
-	// 	Self:  self,
-	// 	Total: total,
-	// }
-	// bt, _ := json.Marshal(info)
 	app.SendResponseCmd(bytecoder.MsgLocalCmd_MSG_LOCAL_CMD_WS_RESP, bt, nil)
+}
+
+func (app *WSMessage) SetCloseMode(msg string) {
+	app.SendResponseCmd(bytecoder.MsgLocalCmd_MSG_LOCAL_CMD_WS_CLOSE, []byte(msg), nil)
+	app.Close()
 }
