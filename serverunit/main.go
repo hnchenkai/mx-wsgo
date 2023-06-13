@@ -198,8 +198,9 @@ func (h *ServerUnit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for k, v := range r.Header {
-		if strings.HasPrefix(k, "MX-WS-") {
-			client.header[k] = v
+		if strings.HasPrefix(k, wsmessage.PrefixProxyHeader) {
+			k1 := strings.Replace(k, wsmessage.PrefixProxyHeader, "", 1)
+			client.header[k1] = v
 		}
 	}
 

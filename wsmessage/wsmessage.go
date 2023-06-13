@@ -15,8 +15,8 @@ type Cmd string
 const (
 	PrefixProxyHeader = "Mx-Ws-"
 	PrefixLocalHeader = "Mx-Wsgo-"
-	WsGroupHeader     = PrefixProxyHeader + "Group"
-	WsStatusHeader    = PrefixProxyHeader + "Status"
+	WsGroupHeader     = PrefixLocalHeader + "Group"
+	WsStatusHeader    = PrefixLocalHeader + "Status"
 )
 
 const (
@@ -197,9 +197,8 @@ func (app *WSMessage) SetWaitMode(self int64, total int64) {
 func (app *WSMessage) GetAllHeader() http.Header {
 	hd := http.Header{}
 	for k, v := range app.OrgHeader {
-		if strings.Contains(k, PrefixProxyHeader) {
-			k1 := strings.Replace(k, PrefixProxyHeader, "", 1)
-			hd[k1] = v
+		if !strings.Contains(k, PrefixLocalHeader) {
+			hd[k] = v
 		}
 	}
 
