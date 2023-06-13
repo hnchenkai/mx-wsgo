@@ -1,7 +1,6 @@
 package mxwsgo_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -29,7 +28,7 @@ func TestClose(t *testing.T) {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.Path {
 			case "/ws":
-				unit.ServeWs(w, r, http.Header{})
+				unit.ServeHTTP(w, r)
 			default:
 			}
 
@@ -57,7 +56,8 @@ func TestAccept(t *testing.T) {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.Path {
 			case "/ws":
-				unit.ServeWs(w, r, http.Header{}, "test")
+				mxwsgo.SetGroup(r.Header, "test")
+				unit.ServeHTTP(w, r)
 			default:
 			}
 
@@ -67,18 +67,6 @@ func TestAccept(t *testing.T) {
 		t.Fatal(err)
 	}
 	unit.Close()
-}
-
-var WaitCountMap = make(map[string]int64)
-
-type WaitUnit struct {
-	Self  int64 `json:"self"`
-	Total int64 `json:"total"`
-}
-
-func (w *WaitUnit) Byte() []byte {
-	b, _ := json.Marshal(w)
-	return b
 }
 
 func TestWait(t *testing.T) {
@@ -96,10 +84,11 @@ func TestWait(t *testing.T) {
 		}
 	}, &mxwsgo.LimitOption{
 		ReadyLimitFunc: func(key string) int {
-			return 1
+			return 0
 		},
 		WaitLimitFunc: func(key string) int {
-			return 2
+			panic("not implement")
+			return 1
 		},
 	})
 	go unit.Run()
@@ -108,7 +97,8 @@ func TestWait(t *testing.T) {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.Path {
 			case "/ws":
-				unit.ServeWs(w, r, http.Header{}, "test")
+				mxwsgo.SetGroup(r.Header, "test")
+				unit.ServeHTTP(w, r)
 			default:
 			}
 

@@ -16,8 +16,8 @@ type LimitOption struct {
 	RedisConn      redis.IRedisConn
 	Namekey        string                    // 服务的命名空间
 	TtlInterval    time.Duration             // 有效期更新时间 单位秒 ttl有效期是这个的2倍 默认是10秒
-	ReadyLimitFunc func(limitkey string) int // 链接成功状态的总量
-	WaitLimitFunc  func(limitkey string) int // 等待状态的总量
+	ReadyLimitFunc func(limitkey string) int // 链接成功状态的总量 -1表示不限制
+	WaitLimitFunc  func(limitkey string) int // 等待状态的总量 -1表示不限制
 }
 
 func (lo *LimitOption) init() {
@@ -112,9 +112,9 @@ func (unit *LimitCountUnit) WaitUnitInfo(ctx context.Context, limitkey string, c
 }
 
 // MakeConnStatus 负责生成连接状态
-func (unit *LimitCountUnit) MakeConnStatus(limitkey string, clientId string) wsmessage.LimitStatus {
+func (unit *LimitCountUnit) MakeConnStatus(limitkey string, clientId string) (wsmessage.LimitStatus, error) {
 	if unit.limitStatic == nil {
-		return wsmessage.LimitAccept
+		return wsmessage.LimitAccept, nil
 	}
 	ctx := context.Background()
 	// 优先查一下是否有人排队中，是否需要清理排队队列
@@ -123,18 +123,20 @@ func (unit *LimitCountUnit) MakeConnStatus(limitkey string, clientId string) wsm
 		// 放入等待队列
 		if err := unit.waitingPool.AddCount(ctx, limitkey); err == nil {
 			waitQueue.Add(clientId)
-			return wsmessage.LimitWait
-		}
-	} else {
-		if err := unit.readyPool.AddCount(ctx, limitkey); err == nil {
-			return wsmessage.LimitAccept
-		} else if err := unit.waitingPool.AddCount(ctx, limitkey); err == nil {
-			waitQueue.Add(clientId)
-			return wsmessage.LimitWait
+			return wsmessage.LimitWait, nil
+		} else {
+			return wsmessage.LimitReject, err
 		}
 	}
 
-	return wsmessage.LimitReject
+	if err := unit.readyPool.AddCount(ctx, limitkey); err == nil {
+		return wsmessage.LimitAccept, nil
+	} else if err := unit.waitingPool.AddCount(ctx, limitkey); err == nil {
+		waitQueue.Add(clientId)
+		return wsmessage.LimitWait, nil
+	} else {
+		return wsmessage.LimitReject, err
+	}
 }
 
 // CloseConnStatus 负责关闭连接状态

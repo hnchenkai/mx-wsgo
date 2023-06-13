@@ -50,10 +50,17 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+type IHubServer interface {
+	// 断开服务
+	Unregister(string)
+	// 接收到消息后，消息分派给具体的用户处理协程
+	Dispatch(string, string, wsmessage.Cmd, []byte, http.Header)
+}
+
 // Client is a middleman between the websocket connection and the hub.
 type Connection struct {
 	Id  string
-	hub IServer
+	hub IHubServer
 
 	// The websocket connection.
 	conn *websocket.Conn

@@ -77,7 +77,7 @@ func (p *LimitPool) init() {
 }
 
 // AddCount 添加一个数量
-func (p *LimitPool) AddCount(ctx context.Context, limitkey string) error {
+func (p *LimitPool) AddCount(ctx context.Context, limitkey string) (result error) {
 	limits, err := p.limitCountClient.GetAll(ctx, limitkey)
 	if err != nil {
 		return err
@@ -101,9 +101,15 @@ func (p *LimitPool) AddCount(ctx context.Context, limitkey string) error {
 	// 这里要读取配置信息，用来确定可以使用的上线
 	limitCount := 0
 	if p.limitFunc != nil {
+		defer func() {
+			if err := recover(); err != nil {
+				limitCount = 0
+				result = errors.New("limit func error")
+			}
+		}()
 		limitCount = p.limitFunc(limitkey)
 	}
-	if limitCount > 0 && sumTotal >= limitCount {
+	if limitCount >= 0 && sumTotal >= limitCount {
 		return errors.New("数量满了，请等待")
 	}
 

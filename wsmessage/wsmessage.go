@@ -4,12 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hnchenkai/mx-wsgo/bytecoder"
 	"google.golang.org/protobuf/proto"
 )
 
 type Cmd string
+
+const (
+	PrefixProxyHeader = "Mx-Ws-"
+	PrefixLocalHeader = "Mx-Wsgo-"
+	WsGroupHeader     = PrefixProxyHeader + "Group"
+	WsStatusHeader    = PrefixProxyHeader + "Status"
+)
 
 const (
 	CmdMessage Cmd = "message" // 收到消息
@@ -46,6 +54,7 @@ type WSMessage struct {
 	Close func()
 	// 添加头的方法
 	AddHeader func(key, value string) bool
+	SetHeader func(key, value string) bool
 	DelHeader func(key string) bool
 
 	Version int
@@ -109,7 +118,7 @@ func (app *WSMessage) FromPb(msg1 []byte) error {
 }
 
 func (app *WSMessage) Group() string {
-	return app.OrgHeader.Get("Group")
+	return app.OrgHeader.Get(WsGroupHeader)
 }
 
 // 应答消息给用户
@@ -152,12 +161,12 @@ func (app *WSMessage) SendProto() bool {
 }
 
 func (app *WSMessage) IsAccept() bool {
-	ok := app.OrgHeader.Get("MX-WSGO-ACCEPT")
+	ok := app.OrgHeader.Get(WsStatusHeader)
 	return ok == "accept"
 }
 
 func (app *WSMessage) Status() LimitStatus {
-	ok := app.OrgHeader.Get("MX-WSGO-ACCEPT")
+	ok := app.OrgHeader.Get(WsStatusHeader)
 	if ok == "accept" {
 		return LimitAccept
 	} else if ok == "wait" {
@@ -168,8 +177,8 @@ func (app *WSMessage) Status() LimitStatus {
 }
 
 func (app *WSMessage) SetAcceptMode() {
-	app.DelHeader("MX-WSGO-ACCEPT")
-	app.AddHeader("MX-WSGO-ACCEPT", "accept")
+	app.DelHeader(WsStatusHeader)
+	app.AddHeader(WsStatusHeader, "accept")
 	app.SendResponseCmd(bytecoder.MsgLocalCmd_MSG_LOCAL_CMD_WS_ACCEPT, []byte("连接成功"), nil)
 }
 
@@ -180,8 +189,25 @@ func (app *WSMessage) SetWaitMode(self int64, total int64) {
 	}
 
 	bt, _ := proto.Marshal(&info)
-	app.AddHeader("MX-WSGO-ACCEPT", "wait")
+	app.AddHeader(WsStatusHeader, "wait")
 	app.SendResponseCmd(bytecoder.MsgLocalCmd_MSG_LOCAL_CMD_WS_WAIT, bt, nil)
+}
+
+// 获取额外注入的消息头
+func (app *WSMessage) GetAllHeader() http.Header {
+	hd := http.Header{}
+	for k, v := range app.OrgHeader {
+		if strings.Contains(k, PrefixProxyHeader) {
+			k1 := strings.Replace(k, PrefixProxyHeader, "", 1)
+			hd[k1] = v
+		}
+	}
+
+	for k, v := range app.Header {
+		hd[k] = []string{v}
+	}
+
+	return hd
 }
 
 func (app *WSMessage) WaitResponse(self int64, total int64) {

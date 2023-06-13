@@ -13,7 +13,7 @@ func TestAdd(t *testing.T) {
 	limitUnit.Init(nil)
 	limitUnit.Run()
 	defer limitUnit.Close()
-	if limitUnit.MakeConnStatus("axxx1", "1") != wsmessage.LimitAccept {
+	if _, err := limitUnit.MakeConnStatus("axxx1", "1"); err != nil {
 		t.FailNow()
 	}
 	fmt.Println(limitUnit.Status("axxx1"))

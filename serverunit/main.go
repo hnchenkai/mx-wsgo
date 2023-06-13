@@ -15,21 +15,6 @@ import (
 
 type TGroup string
 type Dispather func(cmd wsmessage.Cmd, msg *wsmessage.WSMessage)
-type IServer interface {
-	// 发送数据
-	Send(string, []byte) bool
-	// 广播
-	Broadcast([]byte)
-	// 启动服务
-	Run()
-	//
-	ServeWs(http.ResponseWriter, *http.Request, http.Header, ...TGroup)
-	// 断开服务
-	Unregister(string)
-
-	// 接收到消息后，消息分派给具体的用户处理协程
-	Dispatch(string, string, wsmessage.Cmd, []byte, http.Header)
-}
 
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
@@ -168,6 +153,15 @@ func (h *ServerUnit) AddHeader(clientId string, key string, value string) bool {
 	return true
 }
 
+func (h *ServerUnit) SetHeader(clientId string, key string, value string) bool {
+	client, ok := h.clients[clientId]
+	if !ok {
+		return false
+	}
+	client.header.Set(key, value)
+	return true
+}
+
 // 删除head信息
 func (h *ServerUnit) DelHeader(clientId string, key string) bool {
 	client, ok := h.clients[clientId]
@@ -178,20 +172,10 @@ func (h *ServerUnit) DelHeader(clientId string, key string) bool {
 	return true
 }
 
-// 可以挂载到一个http服务上去,从http升级到https extHeader额外携带的信息
-func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request, extHeader http.Header, groups ...TGroup) {
+// 可以挂载到一个http服务上去,从http升级到https
+// header中 携带 Mx-Ws- 会被转发到ws的header中
+func (h *ServerUnit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 这里最好做一个权限校验，判断是否可以链接
-	if extHeader == nil {
-		extHeader = http.Header{}
-	}
-	if len(groups) > 0 {
-		gLists := make([]string, len(groups))
-		for i, t := range groups {
-			gLists[i] = string(t)
-		}
-		extHeader.Add("Group", strings.Join(gLists, ","))
-	}
-
 	conn, err := upgrader.Upgrade(w, r, http.Header{
 		"Sec-Websocket-Protocol": r.Header.Values("Sec-Websocket-Protocol"),
 	})
@@ -210,7 +194,13 @@ func (h *ServerUnit) ServeWs(w http.ResponseWriter, r *http.Request, extHeader h
 		send:    make(chan []byte, 256),
 		options: opt,
 		host:    r.Host,
-		header:  extHeader,
+		header:  http.Header{},
+	}
+
+	for k, v := range r.Header {
+		if strings.HasPrefix(k, "MX-WS-") {
+			client.header[k] = v
+		}
 	}
 
 	for key, value := range r.Header {
@@ -240,50 +230,47 @@ func (h *ServerUnit) doDispatch(cmd wsmessage.Cmd, msg *wsmessage.WSMessage) {
 	}
 }
 
+func (h *ServerUnit) msgBind(msg *wsmessage.WSMessage) *wsmessage.WSMessage {
+	clientId := msg.ClientId
+	msg.Send = func(message []byte) bool {
+		return h.Send(clientId, message)
+	}
+	msg.Close = func() {
+		h.Unregister(clientId)
+	}
+	msg.AddHeader = func(key string, value string) bool {
+		return h.AddHeader(clientId, key, value)
+	}
+	msg.DelHeader = func(key string) bool {
+		return h.DelHeader(clientId, key)
+	}
+	msg.SetHeader = func(key string, value string) bool {
+		return h.SetHeader(clientId, key, value)
+	}
+
+	return msg
+}
+
 // 获取一个链接对象，负责主动发送消息
 func (h *ServerUnit) GetConnMessage(clientId string) *wsmessage.WSMessage {
 	client, ok := h.clients[clientId]
 	if !ok {
 		return nil
 	}
-	return &wsmessage.WSMessage{
+	return h.msgBind(&wsmessage.WSMessage{
 		ClientId:  clientId,
 		Host:      client.host,
 		OrgHeader: client.header,
-		Send: func(message []byte) bool {
-			return h.Send(clientId, message)
-		},
-		Close: func() {
-			h.Unregister(clientId)
-		},
-		AddHeader: func(key string, value string) bool {
-			return h.AddHeader(clientId, key, value)
-		},
-		DelHeader: func(key string) bool {
-			return h.DelHeader(clientId, key)
-		},
-	}
+	})
 }
 
 // 分发消息
 func (h *ServerUnit) Dispatch(host string, clientId string, cmd wsmessage.Cmd, message []byte, header http.Header) {
-	msg := &wsmessage.WSMessage{
+	msg := h.msgBind(&wsmessage.WSMessage{
 		ClientId:  clientId,
 		Host:      host,
 		OrgHeader: header,
-		Send: func(message []byte) bool {
-			return h.Send(clientId, message)
-		},
-		Close: func() {
-			h.Unregister(clientId)
-		},
-		AddHeader: func(key string, value string) bool {
-			return h.AddHeader(clientId, key, value)
-		},
-		DelHeader: func(key string) bool {
-			return h.DelHeader(clientId, key)
-		},
-	}
+	})
 	switch cmd {
 	case wsmessage.CmdMessage:
 		// 这里要么pass掉，要么回复一个错误消息
@@ -307,23 +294,22 @@ func (h *ServerUnit) Dispatch(host string, clientId string, cmd wsmessage.Cmd, m
 			msg.SendError(http.StatusBadRequest, "need accept", nil)
 		}
 	case wsmessage.CmdAccept:
-		// 先发起一个把pb协议推送出去的命令
-		// if h.needInitPb {
-		// 	msg.SendProto()
-		// }
-		// 发起一个等待消息
-		status := h.limitcount.MakeConnStatus(msg.Group(), msg.ClientId)
-		switch status {
-		case wsmessage.LimitAccept:
-			msg.SetAcceptMode()
-			h.doDispatch(cmd, msg)
-		case wsmessage.LimitWait:
-			self, total := h.WaitUnitInfo(context.Background(), msg.Group(), msg.ClientId)
-			msg.SetWaitMode(self, total)
-			h.doDispatch(wsmessage.CmdWait, msg)
-		case wsmessage.LimitReject:
-			msg.SetCloseMode("连接数超过限制")
-			h.doDispatch(wsmessage.CmdReject, msg)
+		// 进行一个是否限制链接的判断
+		if status, err := h.limitcount.MakeConnStatus(msg.Group(), msg.ClientId); err != nil {
+			msg.SetCloseMode(err.Error())
+		} else {
+			switch status {
+			case wsmessage.LimitAccept:
+				msg.SetAcceptMode()
+				h.doDispatch(cmd, msg)
+			case wsmessage.LimitWait:
+				self, total := h.WaitUnitInfo(context.Background(), msg.Group(), msg.ClientId)
+				msg.SetWaitMode(self, total)
+				h.doDispatch(wsmessage.CmdWait, msg)
+			case wsmessage.LimitReject:
+				msg.SetCloseMode("too many requests")
+				h.doDispatch(wsmessage.CmdReject, msg)
+			}
 		}
 	case wsmessage.CmdClose:
 		// 这里把send无效化掉
