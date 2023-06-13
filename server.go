@@ -51,6 +51,6 @@ func SetGroup(header http.Header, group string) http.Header {
 
 // 添加head信息 会被转发到ws的header中
 func AddHeader(header http.Header, k string, group string) http.Header {
-	header.Add(wsmessage.PrefixLocalHeader+k, group)
+	header.Add(wsmessage.PrefixProxyHeader+k, group)
 	return header
 }
